@@ -3,7 +3,7 @@ services:
   - type: web
     name: rollcall-backend
     runtime: node
-    rootDir: backend
+    rootDir: attendance-app/backend
     plan: free
     buildCommand: npm install
     startCommand: npm start
@@ -18,12 +18,11 @@ services:
           name: rollcall-frontend
           type: web
           envVarKey: RENDER_EXTERNAL_HOSTNAME
-
   # --- Frontend static site ---
   - type: web
     name: rollcall-frontend
     runtime: static
-    rootDir: frontend
+    rootDir: attendance-app/frontend
     buildCommand: >
       VITE_API_URL="https://${BACKEND_HOST}/api" npm install && npm run build
     staticPublishPath: ./dist
