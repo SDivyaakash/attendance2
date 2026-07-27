@@ -1,0 +1,42 @@
+services:
+  # --- Backend API ---
+  - type: web
+    name: rollcall-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      # Render's own env var for the frontend's *actual* public hostname,
+      # including any random suffix Render added (e.g. rollcall-frontend-bkp6.onrender.com).
+      # This is more reliable than trying to reconstruct the URL ourselves.
+      - key: FRONTEND_HOST
+        fromService:
+          name: rollcall-frontend
+          type: web
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+
+  # --- Frontend static site ---
+  - type: web
+    name: rollcall-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: >
+      VITE_API_URL="https://${BACKEND_HOST}/api" npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: BACKEND_HOST
+        fromService:
+          name: rollcall-backend
+          type: web
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+    # Client-side routing (React Router) needs every path to fall back to
+    # index.html — without this, refreshing or directly opening a route
+    # like /login returns a 404 from Render's static file server.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
