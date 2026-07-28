@@ -18,20 +18,17 @@ services:
           name: rollcall-frontend
           type: web
           envVarKey: RENDER_EXTERNAL_HOSTNAME
+
   # --- Frontend static site ---
   - type: web
     name: rollcall-frontend
     runtime: static
     rootDir: attendance-app/frontend
-    buildCommand: >
-      VITE_API_URL="https://${BACKEND_HOST}/api" npm install && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
-      - key: BACKEND_HOST
-        fromService:
-          name: rollcall-backend
-          type: web
-          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: VITE_API_URL
+        value: https://rollcall-backend-qwsm.onrender.com/api
     # Client-side routing (React Router) needs every path to fall back to
     # index.html — without this, refreshing or directly opening a route
     # like /login returns a 404 from Render's static file server.
