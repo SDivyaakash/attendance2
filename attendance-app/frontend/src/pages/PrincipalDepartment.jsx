@@ -3,6 +3,9 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Users, GraduationCap, BookOpen, TrendingUp, ChevronRight } from "lucide-react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
+import DailyAttendanceCard from "../components/DailyAttendanceCard";
+import TeacherList from "../components/TeacherList";
+import StudentList from "../components/StudentList";
 import api from "../api";
 
 export default function PrincipalDepartment() {
@@ -42,6 +45,8 @@ export default function PrincipalDepartment() {
           accent
         />
       </div>
+
+      <DailyAttendanceCard fetchUrl={`/principal/departments/${id}/daily-summary`} />
 
       <h2 className="text-sm font-medium text-ink-soft mb-3 uppercase tracking-wide">
         Subjects in {department.name}
@@ -87,6 +92,11 @@ export default function PrincipalDepartment() {
           })}
         </div>
       )}
+
+      <div className="mt-10">
+        <TeacherList fetchUrl={`/principal/departments/${id}/teachers`} />
+      </div>
+      <StudentList fetchUrl={`/principal/departments/${id}/students`} />
     </Layout>
   );
 }
