@@ -1,7 +1,15 @@
 import { Router } from "express";
 import db from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { computeSubjectReport, reportToCsv, csvFilename, computeDepartmentOverview } from "../utils/report.js";
+import {
+  computeSubjectReport,
+  reportToCsv,
+  csvFilename,
+  computeDepartmentOverview,
+  getDepartmentTeachers,
+  getDepartmentStudents,
+  getDailySummary,
+} from "../utils/report.js";
 
 const router = Router();
 router.use(requireAuth, requireRole("principal"));
@@ -46,6 +54,78 @@ router.get("/departments/:id", (req, res) => {
   const overview = computeDepartmentOverview(req.params.id);
   if (!overview) return res.status(404).json({ error: "Department not found" });
   res.json(overview);
+});
+
+// College-wide directories, each row tagged with its department for context.
+router.get("/teachers", (req, res) => {
+  const teachers = db
+    .prepare(
+      `SELECT u.id, u.name, u.email, d.name as department_name, d.code as department_code,
+        (SELECT COUNT(*) FROM subjects s WHERE s.teacher_id = u.id) as subject_count,
+        (SELECT COUNT(*) FROM sessions se JOIN subjects s ON s.id = se.subject_id
+           WHERE s.teacher_id = u.id AND se.status = 'ended') as sessions_count
+       FROM users u LEFT JOIN departments d ON d.id = u.department_id
+       WHERE u.role = 'teacher' ORDER BY d.name, u.name`
+    )
+    .all();
+  res.json(teachers);
+});
+
+router.get("/students", (req, res) => {
+  const students = db
+    .prepare(
+      `SELECT u.id, u.name, u.roll_no, u.email, d.name as department_name, d.code as department_code
+       FROM users u LEFT JOIN departments d ON d.id = u.department_id
+       WHERE u.role = 'student' ORDER BY d.name, u.roll_no`
+    )
+    .all();
+
+  const withStats = students.map((stu) => {
+    const totals = db
+      .prepare(
+        `SELECT
+          (SELECT COUNT(*) FROM sessions se JOIN subjects s ON s.id = se.subject_id
+             JOIN enrollments e ON e.subject_id = s.id AND e.student_id = ?
+             WHERE se.status = 'ended') as total_sessions,
+          (SELECT COUNT(*) FROM attendance a WHERE a.student_id = ? AND a.status = 'present') as present_count`
+      )
+      .get(stu.id, stu.id);
+    return {
+      ...stu,
+      total_sessions: totals.total_sessions,
+      present_count: totals.present_count,
+      percentage: totals.total_sessions
+        ? Math.round((totals.present_count / totals.total_sessions) * 1000) / 10
+        : null,
+    };
+  });
+
+  res.json(withStats);
+});
+
+router.get("/daily-summary", (req, res) => {
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  res.json(getDailySummary(null, date));
+});
+
+// Per-department variants — same shape, scoped to one department.
+router.get("/departments/:id/teachers", (req, res) => {
+  const department = db.prepare("SELECT id FROM departments WHERE id = ?").get(req.params.id);
+  if (!department) return res.status(404).json({ error: "Department not found" });
+  res.json(getDepartmentTeachers(department.id));
+});
+
+router.get("/departments/:id/students", (req, res) => {
+  const department = db.prepare("SELECT id FROM departments WHERE id = ?").get(req.params.id);
+  if (!department) return res.status(404).json({ error: "Department not found" });
+  res.json(getDepartmentStudents(department.id));
+});
+
+router.get("/departments/:id/daily-summary", (req, res) => {
+  const department = db.prepare("SELECT id FROM departments WHERE id = ?").get(req.params.id);
+  if (!department) return res.status(404).json({ error: "Department not found" });
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  res.json(getDailySummary(department.id, date));
 });
 
 router.get("/departments/:deptId/subjects/:subjectId/attendance-report", (req, res) => {
