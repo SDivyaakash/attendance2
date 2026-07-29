@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { Building2, Users, GraduationCap, BookOpen, TrendingUp, Plus } from "lucide-react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
+import DailyAttendanceCard from "../components/DailyAttendanceCard";
+import TeacherList from "../components/TeacherList";
+import StudentList from "../components/StudentList";
 import api, { apiErrorMessage } from "../api";
 import { useAuth } from "../AuthContext";
 
@@ -69,6 +72,8 @@ export default function PrincipalDashboard() {
           accent
         />
       </div>
+
+      <DailyAttendanceCard fetchUrl="/principal/daily-summary" />
 
       <div className="flex items-baseline justify-between mb-3">
         <h2 className="text-sm font-medium text-ink-soft uppercase tracking-wide">
@@ -146,6 +151,11 @@ export default function PrincipalDashboard() {
           );
         })}
       </div>
+
+      <div className="mt-10">
+        <TeacherList fetchUrl="/principal/teachers" showDepartment />
+      </div>
+      <StudentList fetchUrl="/principal/students" showDepartment />
     </Layout>
   );
 }
