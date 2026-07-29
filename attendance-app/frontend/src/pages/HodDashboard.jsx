@@ -3,6 +3,9 @@ import { Link } from "react-router-dom";
 import { Users, GraduationCap, BookOpen, TrendingUp, SlidersHorizontal, FileBarChart2 } from "lucide-react";
 import Layout from "../components/Layout";
 import StatCard from "../components/StatCard";
+import DailyAttendanceCard from "../components/DailyAttendanceCard";
+import TeacherList from "../components/TeacherList";
+import StudentList from "../components/StudentList";
 import api from "../api";
 import { useAuth } from "../AuthContext";
 
@@ -51,6 +54,8 @@ export default function HodDashboard() {
           accent
         />
       </div>
+
+      <DailyAttendanceCard fetchUrl="/hod/daily-summary" />
 
       <h2 className="text-sm font-medium text-ink-soft mb-3 uppercase tracking-wide">
         Subjects in {department.name}
@@ -110,6 +115,11 @@ export default function HodDashboard() {
           })}
         </div>
       )}
+
+      <div className="mt-10">
+        <TeacherList fetchUrl="/hod/teachers" />
+      </div>
+      <StudentList fetchUrl="/hod/students" />
     </Layout>
   );
 }
