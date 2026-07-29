@@ -1,7 +1,15 @@
 import { Router } from "express";
 import db from "../db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
-import { computeSubjectReport, reportToCsv, csvFilename, computeDepartmentOverview } from "../utils/report.js";
+import {
+  computeSubjectReport,
+  reportToCsv,
+  csvFilename,
+  computeDepartmentOverview,
+  getDepartmentTeachers,
+  getDepartmentStudents,
+  getDailySummary,
+} from "../utils/report.js";
 
 const router = Router();
 router.use(requireAuth, requireRole("hod"));
@@ -20,6 +28,25 @@ router.get("/overview", (req, res) => {
 
   const overview = computeDepartmentOverview(departmentId);
   res.json(overview);
+});
+
+router.get("/teachers", (req, res) => {
+  const departmentId = ensureDepartment(req, res);
+  if (!departmentId) return;
+  res.json(getDepartmentTeachers(departmentId));
+});
+
+router.get("/students", (req, res) => {
+  const departmentId = ensureDepartment(req, res);
+  if (!departmentId) return;
+  res.json(getDepartmentStudents(departmentId));
+});
+
+router.get("/daily-summary", (req, res) => {
+  const departmentId = ensureDepartment(req, res);
+  if (!departmentId) return;
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  res.json(getDailySummary(departmentId, date));
 });
 
 router.get("/subjects/:id/attendance-report", (req, res) => {
