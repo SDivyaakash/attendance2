@@ -96,3 +96,80 @@ export function computeDepartmentOverview(departmentId) {
 
   return { department, teacherCount, studentCount, subjects, overallPercentage };
 }
+
+// Teacher directory for a department — how many subjects they run and how
+// many sessions they've held in total. Used by both HOD and principal views.
+export function getDepartmentTeachers(departmentId) {
+  return db
+    .prepare(
+      `SELECT u.id, u.name, u.email,
+        (SELECT COUNT(*) FROM subjects s WHERE s.teacher_id = u.id AND s.department_id = ?) as subject_count,
+        (SELECT COUNT(*) FROM sessions se JOIN subjects s ON s.id = se.subject_id
+           WHERE s.teacher_id = u.id AND s.department_id = ? AND se.status = 'ended') as sessions_count
+       FROM users u WHERE u.role = 'teacher' AND u.department_id = ? ORDER BY u.name`
+    )
+    .all(departmentId, departmentId, departmentId);
+}
+
+// Student directory for a department — each student's overall attendance
+// percentage across every subject taught within that department.
+export function getDepartmentStudents(departmentId) {
+  const students = db
+    .prepare(
+      `SELECT id, name, roll_no, email FROM users
+       WHERE role = 'student' AND department_id = ? ORDER BY roll_no`
+    )
+    .all(departmentId);
+
+  return students.map((stu) => {
+    const totals = db
+      .prepare(
+        `SELECT
+          (SELECT COUNT(*) FROM sessions se JOIN subjects s ON s.id = se.subject_id
+             JOIN enrollments e ON e.subject_id = s.id AND e.student_id = ?
+             WHERE s.department_id = ? AND se.status = 'ended') as total_sessions,
+          (SELECT COUNT(*) FROM attendance a JOIN sessions se ON se.id = a.session_id
+             JOIN subjects s ON s.id = se.subject_id
+             WHERE a.student_id = ? AND a.status = 'present' AND s.department_id = ?) as present_count`
+      )
+      .get(stu.id, departmentId, stu.id, departmentId);
+
+    return {
+      ...stu,
+      total_sessions: totals.total_sessions,
+      present_count: totals.present_count,
+      percentage: totals.total_sessions
+        ? Math.round((totals.present_count / totals.total_sessions) * 1000) / 10
+        : null,
+    };
+  });
+}
+
+// How many attendance records were marked present/absent on a given day
+// (UTC date, matching how timestamps are stored). Pass departmentId = null
+// for a college-wide total (principal); pass a specific id to scope to one
+// department (HOD, or principal drilling into a department).
+export function getDailySummary(departmentId, dateStr) {
+  const deptFilter = departmentId ? "AND s.department_id = ?" : "";
+  const baseParams = departmentId ? [dateStr, departmentId] : [dateStr];
+
+  const present = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM attendance a
+       JOIN sessions se ON se.id = a.session_id
+       JOIN subjects s ON s.id = se.subject_id
+       WHERE date(a.marked_at) = ? AND a.status = 'present' ${deptFilter}`
+    )
+    .get(...baseParams).c;
+
+  const absent = db
+    .prepare(
+      `SELECT COUNT(*) as c FROM attendance a
+       JOIN sessions se ON se.id = a.session_id
+       JOIN subjects s ON s.id = se.subject_id
+       WHERE date(a.marked_at) = ? AND a.status = 'absent' ${deptFilter}`
+    )
+    .get(...baseParams).c;
+
+  return { date: dateStr, present, absent };
+}
